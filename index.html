@@ -200,11 +200,11 @@
     let activeKey = null, audioContext, analyser, animation;
     const audioNodes = new Map();
 
-    function stopAll(except = null) {
+    function stopAll(except = null, highlight = true) {
       Object.entries(tracks).forEach(([key, audio]) => {
         if (key !== except) { audio.pause(); audio.currentTime = 0; }
       });
-      buttons.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.key === except)));
+      buttons.forEach(b => b.setAttribute("aria-pressed", String(highlight && b.dataset.key === except)));
     }
 
     function connectWaveform(audio) {
@@ -244,8 +244,9 @@
 
     async function playTrack(key, fromQuiz = false) {
       const audio = tracks[key];
-      if (activeKey === key && !audio.paused) { audio.pause(); status.textContent = "Paused"; return; }
-      stopAll(key); activeKey = key;
+      if (!fromQuiz && activeKey === key && !audio.paused) { audio.pause(); status.textContent = "Paused"; return; }
+      stopAll(key, !fromQuiz); activeKey = key;
+      if (fromQuiz) audio.currentTime = 0;
       connectWaveform(audio);
       await audioContext.resume(); await audio.play();
       status.textContent = fromQuiz ? "Mystery sample playing" : `${labels[key]} playing`;
@@ -257,15 +258,19 @@
       audio.addEventListener("ended", () => { if (activeKey === key) { status.textContent = "Choose another sample"; progress.style.width = "0"; stopAll(); activeKey = null; drawIdle(); } });
     });
 
-    let answer = null;
+    let answer = null, lastAnswer = null;
     const quizKeys = ["noise", "interference", "distortion"];
     const feedback = document.getElementById("feedback");
     document.getElementById("quizPlay").addEventListener("click", () => {
-      answer = quizKeys[Math.floor(Math.random() * quizKeys.length)]; feedback.textContent = ""; feedback.className = "feedback"; playTrack(answer, true);
+      if (!answer) {
+        const nextKeys = quizKeys.filter(key => key !== lastAnswer);
+        answer = nextKeys[Math.floor(Math.random() * nextKeys.length)];
+      }
+      feedback.textContent = ""; feedback.className = "feedback"; playTrack(answer, true);
     });
     document.querySelectorAll(".choice").forEach(choice => choice.addEventListener("click", () => {
       if (!answer) { feedback.textContent = "Play a mystery sample first."; feedback.className = "feedback try"; return; }
-      if (choice.dataset.answer === answer) { feedback.textContent = `Correct. The sample demonstrates ${labels[answer].toLowerCase()}.`; feedback.className = "feedback good"; answer = null; }
+      if (choice.dataset.answer === answer) { feedback.textContent = `Correct. The sample demonstrates ${labels[answer].toLowerCase()}.`; feedback.className = "feedback good"; lastAnswer = answer; answer = null; }
       else { feedback.textContent = "Not quite. Listen again and ask whether another signal was added or the original changed."; feedback.className = "feedback try"; }
     }));
     drawIdle();
