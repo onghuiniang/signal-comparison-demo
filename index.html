@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive audio comparison of a clean signal, noise, interference and distortion.">
+  <title>Signal Lab: Hear the Difference</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23091020'/%3E%3Cpath d='M8 34h8l4-16 8 30 7-35 7 28 5-15 4 8h5' fill='none' stroke='%232dd4bf' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #070b16;
+      --surface: #10182a;
+      --surface-2: #172238;
+      --text: #f3f7ff;
+      --muted: #aebbd2;
+      --line: rgba(255,255,255,.11);
+      --teal: #2dd4bf;
+      --blue: #60a5fa;
+      --amber: #fbbf24;
+      --pink: #fb7185;
+      --purple: #c084fc;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 5%, rgba(45,212,191,.16), transparent 25rem),
+        radial-gradient(circle at 90% 20%, rgba(96,165,250,.13), transparent 28rem),
+        var(--bg);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    button { font: inherit; }
+    .shell { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
+    header { padding: 56px 0 30px; }
+    .eyebrow { color: var(--teal); font-size: .82rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
+    h1 { max-width: 760px; margin: 12px 0 14px; font-size: clamp(2.5rem, 7vw, 5.3rem); line-height: .97; letter-spacing: -.055em; }
+    .lede { max-width: 720px; margin: 0; color: var(--muted); font-size: clamp(1.05rem, 2.2vw, 1.28rem); }
+    .script {
+      margin-top: 28px;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--teal);
+      border-radius: 0 16px 16px 0;
+      background: rgba(16,24,42,.72);
+      color: #dfe8f7;
+    }
+    .script strong { display: block; margin-bottom: 4px; color: var(--teal); font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; }
+    .lab { display: grid; grid-template-columns: 1.15fr .85fr; gap: 22px; padding: 26px 0 56px; }
+    .panel { border: 1px solid var(--line); border-radius: 24px; background: rgba(16,24,42,.88); box-shadow: 0 24px 80px rgba(0,0,0,.22); overflow: hidden; }
+    .stage { padding: 24px; }
+    .stage-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+    .stage h2, .learn h2, .quiz h2 { margin: 0; font-size: 1.35rem; letter-spacing: -.02em; }
+    .status { color: var(--muted); font-size: .92rem; text-align: right; }
+    .scope {
+      position: relative;
+      height: 190px;
+      margin: 22px 0;
+      overflow: hidden;
+      border: 1px solid rgba(45,212,191,.22);
+      border-radius: 18px;
+      background:
+        linear-gradient(rgba(45,212,191,.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(45,212,191,.07) 1px, transparent 1px),
+        #070d18;
+      background-size: 28px 28px;
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    .sample-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .sample {
+      min-height: 112px;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      color: var(--text);
+      background: var(--surface-2);
+      text-align: left;
+      cursor: pointer;
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+    .sample:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.26); }
+    .sample[aria-pressed="true"] { border-color: var(--sample); background: color-mix(in srgb, var(--sample) 14%, var(--surface-2)); }
+    .sample-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .number { color: var(--sample); font-size: .78rem; font-weight: 900; letter-spacing: .12em; }
+    .play { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--sample); color: #07101c; font-weight: 900; }
+    .sample b { display: block; margin-top: 8px; font-size: 1.08rem; }
+    .sample small { display: block; margin-top: 3px; color: var(--muted); font-size: .86rem; }
+    .clean { --sample: var(--teal); }
+    .noise { --sample: var(--amber); }
+    .interference { --sample: var(--blue); }
+    .distortion { --sample: var(--pink); }
+    .progress { height: 5px; margin-top: 18px; border-radius: 5px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .progress > span { display: block; width: 0; height: 100%; background: var(--teal); transition: width .08s linear; }
+    .side { display: grid; gap: 22px; align-content: start; }
+    .learn, .quiz { padding: 24px; }
+    .explain { display: grid; gap: 13px; margin-top: 18px; }
+    .fact { display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: start; }
+    .icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,.07); font-size: 1rem; font-weight: 900; }
+    .fact b { display: block; margin-bottom: 2px; }
+    .fact p { margin: 0; color: var(--muted); font-size: .92rem; }
+    .formula { margin-top: 18px; padding: 15px; border-radius: 15px; background: rgba(45,212,191,.08); color: #d8fff8; font-size: .92rem; }
+    .quiz p { margin: 8px 0 18px; color: var(--muted); }
+    .quiz-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+    .choice, .quiz-play {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: var(--text);
+      background: rgba(255,255,255,.06);
+      cursor: pointer;
+    }
+    .quiz-play { margin-bottom: 14px; border-color: rgba(192,132,252,.45); background: rgba(192,132,252,.14); }
+    .choice:hover, .quiz-play:hover { border-color: rgba(255,255,255,.35); }
+    .feedback { min-height: 24px; margin-top: 14px; font-weight: 750; }
+    .feedback.good { color: var(--teal); }
+    .feedback.try { color: var(--amber); }
+    footer { padding: 0 0 42px; color: #8391aa; font-size: .86rem; }
+    audio { display: none; }
+    @media (max-width: 850px) { .lab { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) {
+      .shell { width: min(100% - 22px, 1120px); }
+      header { padding-top: 34px; }
+      .stage, .learn, .quiz { padding: 18px; }
+      .sample-grid { grid-template-columns: 1fr; }
+      .scope { height: 150px; }
+      .stage-top { display: block; }
+      .status { margin-top: 5px; text-align: left; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <header class="shell">
+    <div class="eyebrow">Communication Systems · Listening Lab</div>
+    <h1>Hear what changed in the signal</h1>
+    <p class="lede">The announcement stays the same. Listen closely to identify whether an unwanted signal was added or the original signal itself was changed.</p>
+    <div class="script"><strong>Reference message</strong>“Good morning, Kuantan! You are listening to Channel One. Traffic is moving smoothly along Jalan Beserah. Expect light rain this afternoon. Have a safe journey!”</div>
+  </header>
+
+  <main class="shell lab">
+    <section class="panel stage" aria-labelledby="listen-title">
+      <div class="stage-top">
+        <div><div class="eyebrow">01 · Compare</div><h2 id="listen-title">Play one sample at a time</h2></div>
+        <div class="status" id="status" aria-live="polite">Choose a sample</div>
+      </div>
+      <div class="scope"><canvas id="scope" width="900" height="220" aria-label="Animated audio waveform"></canvas></div>
+      <div class="sample-grid">
+        <button class="sample clean" data-key="clean" aria-pressed="false"><span class="sample-top"><span class="number">A · REFERENCE</span><span class="play">▶</span></span><b>Clean signal</b><small>Only the desired announcement</small></button>
+        <button class="sample noise" data-key="noise" aria-pressed="false"><span class="sample-top"><span class="number">B · RANDOM</span><span class="play">▶</span></span><b>Noise</b><small>The same voice plus random hiss</small></button>
+        <button class="sample interference" data-key="interference" aria-pressed="false"><span class="sample-top"><span class="number">C · COMPETING</span><span class="play">▶</span></span><b>Interference</b><small>Another station overlaps the message</small></button>
+        <button class="sample distortion" data-key="distortion" aria-pressed="false"><span class="sample-top"><span class="number">D · ALTERED</span><span class="play">▶</span></span><b>Distortion</b><small>The original voice becomes clipped</small></button>
+      </div>
+      <div class="progress" aria-hidden="true"><span id="progress"></span></div>
+    </section>
+
+    <div class="side">
+      <section class="panel learn" aria-labelledby="learn-title">
+        <div class="eyebrow">02 · Understand</div><h2 id="learn-title">One question separates them</h2>
+        <div class="explain">
+          <div class="fact"><div class="icon" style="color:var(--amber)">N</div><div><b>Noise</b><p>Random electrical or environmental energy is added to the desired signal.</p></div></div>
+          <div class="fact"><div class="icon" style="color:var(--blue)">I</div><div><b>Interference</b><p>A second meaningful signal competes with the desired signal at the receiver.</p></div></div>
+          <div class="fact"><div class="icon" style="color:var(--pink)">D</div><div><b>Distortion</b><p>The system changes the shape of the desired signal itself.</p></div></div>
+        </div>
+        <div class="formula"><strong>Quick check:</strong> Was something added, or was the original signal changed?</div>
+      </section>
+
+      <section class="panel quiz" aria-labelledby="quiz-title">
+        <div class="eyebrow">03 · Test yourself</div><h2 id="quiz-title">Identify the unknown signal</h2>
+        <p>Play a mystery sample, then choose the best answer.</p>
+        <button class="quiz-play" id="quizPlay">▶ Play mystery sample</button>
+        <div class="quiz-actions">
+          <button class="choice" data-answer="noise">Noise</button>
+          <button class="choice" data-answer="interference">Interference</button>
+          <button class="choice" data-answer="distortion">Distortion</button>
+        </div>
+        <div class="feedback" id="feedback" aria-live="polite"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="shell">Use headphones at a comfortable volume. Audio examples are designed for introductory communication-system learning.</footer>
+
+  <audio id="clean" preload="metadata" crossorigin="anonymous" src="clean-signal.mp3"></audio>
+  <audio id="noise" preload="metadata" crossorigin="anonymous" src="noise-signal.mp3"></audio>
+  <audio id="interference" preload="metadata" crossorigin="anonymous" src="interference-signal.mp3"></audio>
+  <audio id="distortion" preload="metadata" crossorigin="anonymous" src="distortion-signal.mp3"></audio>
+
+  <script>
+    const tracks = Object.fromEntries(["clean", "noise", "interference", "distortion"].map(k => [k, document.getElementById(k)]));
+    const labels = { clean: "Clean signal", noise: "Noise", interference: "Interference", distortion: "Distortion" };
+    const buttons = [...document.querySelectorAll(".sample")];
+    const status = document.getElementById("status");
+    const progress = document.getElementById("progress");
+    const canvas = document.getElementById("scope");
+    const ctx = canvas.getContext("2d");
+    let activeKey = null, audioContext, analyser, animation;
+    const audioNodes = new Map();
+
+    function stopAll(except = null) {
+      Object.entries(tracks).forEach(([key, audio]) => {
+        if (key !== except) { audio.pause(); audio.currentTime = 0; }
+      });
+      buttons.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.key === except)));
+    }
+
+    function connectWaveform(audio) {
+      if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      if (!audioNodes.has(audio)) {
+        const node = audioContext.createMediaElementSource(audio);
+        const meter = audioContext.createAnalyser();
+        meter.fftSize = 1024;
+        node.connect(meter); meter.connect(audioContext.destination);
+        audioNodes.set(audio, meter);
+      }
+      analyser = audioNodes.get(audio);
+      draw();
+    }
+
+    function drawIdle() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "rgba(45,212,191,.55)"; ctx.lineWidth = 3; ctx.beginPath();
+      ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
+    }
+
+    function draw() {
+      cancelAnimationFrame(animation);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const render = () => {
+        animation = requestAnimationFrame(render); analyser.getByteTimeDomainData(data);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+        gradient.addColorStop(0, "#2dd4bf"); gradient.addColorStop(.55, "#60a5fa"); gradient.addColorStop(1, "#c084fc");
+        ctx.strokeStyle = gradient; ctx.lineWidth = 4; ctx.beginPath();
+        const step = canvas.width / data.length;
+        data.forEach((v, i) => { const x = i * step, y = (v / 255) * canvas.height; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+        ctx.stroke();
+      };
+      render();
+    }
+
+    async function playTrack(key, fromQuiz = false) {
+      const audio = tracks[key];
+      if (activeKey === key && !audio.paused) { audio.pause(); status.textContent = "Paused"; return; }
+      stopAll(key); activeKey = key;
+      connectWaveform(audio);
+      await audioContext.resume(); await audio.play();
+      status.textContent = fromQuiz ? "Mystery sample playing" : `${labels[key]} playing`;
+    }
+
+    buttons.forEach(button => button.addEventListener("click", () => playTrack(button.dataset.key)));
+    Object.entries(tracks).forEach(([key, audio]) => {
+      audio.addEventListener("timeupdate", () => { if (activeKey === key && audio.duration) progress.style.width = `${audio.currentTime / audio.duration * 100}%`; });
+      audio.addEventListener("ended", () => { if (activeKey === key) { status.textContent = "Choose another sample"; progress.style.width = "0"; stopAll(); activeKey = null; drawIdle(); } });
+    });
+
+    let answer = null;
+    const quizKeys = ["noise", "interference", "distortion"];
+    const feedback = document.getElementById("feedback");
+    document.getElementById("quizPlay").addEventListener("click", () => {
+      answer = quizKeys[Math.floor(Math.random() * quizKeys.length)]; feedback.textContent = ""; feedback.className = "feedback"; playTrack(answer, true);
+    });
+    document.querySelectorAll(".choice").forEach(choice => choice.addEventListener("click", () => {
+      if (!answer) { feedback.textContent = "Play a mystery sample first."; feedback.className = "feedback try"; return; }
+      if (choice.dataset.answer === answer) { feedback.textContent = `Correct. The sample demonstrates ${labels[answer].toLowerCase()}.`; feedback.className = "feedback good"; answer = null; }
+      else { feedback.textContent = "Not quite. Listen again and ask whether another signal was added or the original changed."; feedback.className = "feedback try"; }
+    }));
+    drawIdle();
+  </script>
+</body>
+</html>
